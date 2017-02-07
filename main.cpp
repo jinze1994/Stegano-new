@@ -1,5 +1,4 @@
-#include "habit.h"
-#include "jpeg.h"
+#include "mlbc.h"
 
 const char* msg_usage = 
 "Usage:  %s --write    [input_filename] [output_filename] [password] [message]\n"
@@ -8,8 +7,8 @@ const char* msg_usage =
 
 int main(int argc, char* argv[]) {
 	const char *cmd = NULL;
-	char *input_filename = NULL, *output_filename = NULL;
-	char *password = NULL, *message = NULL;
+	const char *input_filename = NULL, *output_filename = NULL;
+	const char *password = NULL, *message = NULL;
 	FILE *input_file = NULL, *output_file = NULL, *rep_file = NULL;
 
 	// Read Arguments
@@ -50,6 +49,9 @@ int main(int argc, char* argv[]) {
 
 		rv = printJpegQuantity(rep_file);
 		if (rv) goto cleanup;
+		rewind(rep_file);
+
+		rv = steganoEncode(rep_file, output_file, message, password);
 
 	} else
 		Panic("Wrong command\n");

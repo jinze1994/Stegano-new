@@ -1,10 +1,10 @@
 all: main
 
-main: jpeg.c jpeg.h habit.h main.c 
-	g++ -O2 -Wall -Wextra -Wshadow main.c jpeg.c -ljpeg -o main
+main: jpeg.cpp jpeg.h mlbc.cpp mlbc.h habit.h main.cpp
+	g++ -O2 -Wall -Wextra -Wshadow jpeg.cpp mlbc.cpp main.cpp -ljpeg -o main
 
 write:
 	./main --write t1.jpg out.jpg password helloworld
 
 clean:
-	rm main
+	rm -f main tmp.jpg out.jpg
