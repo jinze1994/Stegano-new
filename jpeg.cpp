@@ -47,8 +47,10 @@ int jpegChangeQuantity(FILE* infile, FILE* repfile, int quantity) {
 		(void) jpeg_read_header(&cinfo_in, TRUE);
 
 		data = (uint8_t*)malloc(cinfo_in.image_width * cinfo_in.image_height * cinfo_in.num_components);
-		if (data == NULL)
+		if (data == NULL) {
+			jpeg_destroy_decompress(&cinfo_in);
 			return 20;
+		}
 	
 		(void) jpeg_start_decompress(&cinfo_in);
 		JSAMPROW row_pointer[1];
@@ -64,7 +66,9 @@ int jpegChangeQuantity(FILE* infile, FILE* repfile, int quantity) {
 		cinfo.err = jpeg_std_error(&jerr.pub);
 		jerr.pub.error_exit = my_error_exit;
 		if (setjmp(jerr.setjmp_buffer)) {
+			jpeg_destroy_decompress(&cinfo_in);
 			jpeg_destroy_compress(&cinfo);
+			free(data);
 			return 10;
 		}
 
