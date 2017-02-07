@@ -1,5 +1,25 @@
 #include "jpeg.h"
 
+const char * steganolab_describe(int code) {
+	switch(code) {
+		case 0:
+			return "OK";
+		case 2:
+			return "Jpeglib fail";
+		case 3:
+			return "Can't read data from RANDOM_SOURCE";
+		case 10:
+			return "Data too long";
+		case 20:
+			return "Out of memory";
+		case 30:
+			return "Error writing file copy";
+		case 40:
+			return "Only garbage found";
+	}
+	return "Unknown error";
+}
+
 void my_error_exit (j_common_ptr cinfo) {
 	/* cinfo->err really points to a my_error_mgr struct, so coerce pointer */
 	struct my_error_mgr* myerr = (struct my_error_mgr*) cinfo->err;

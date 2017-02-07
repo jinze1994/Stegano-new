@@ -34,6 +34,7 @@ int main(int argc, char* argv[]) {
 	Assert(stdlog != NULL, "Failed to open stdlog\n");
 
 	// Process Command
+	int rv = 0;
 	if (!strcmp(cmd, "--estimate")) {
 
 	} else if (!strcmp(cmd, "--read")) {
@@ -43,14 +44,18 @@ int main(int argc, char* argv[]) {
 		rep_file = fopen("tmp.jpg", "w+b");
 		Assert(rep_file != NULL, "Failed to open temp file\n");
 
-		jpegChangeQuantity(input_file, rep_file, 65);
+		rv = jpegChangeQuantity(input_file, rep_file, 65);
+		if (rv) goto cleanup;
 		rewind(rep_file);
 
-		printJpegQuantity(rep_file);
+		rv = printJpegQuantity(rep_file);
+		if (rv) goto cleanup;
+
 	} else
 		Panic("Wrong command\n");
 
 	// Clean up
+cleanup:
 	if (input_file)
 		fclose(input_file);
 	if (output_file)
