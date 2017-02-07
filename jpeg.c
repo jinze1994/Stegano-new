@@ -102,8 +102,7 @@ int jpegChangeQuantity(FILE* infile, FILE* repfile, int quantity) {
 	return 0;
 }
 
-static uint16_t AllQualTabls[100][128];
-static void initAllQualTabls() {
+static void initAllQualTabls(uint16_t AllQualTabls[100][128]) {
 	static const uint16_t std_luminance_quant_tbl[64] = {
 		16,  11,  10,  16,  24,  40,  51,  61,
 		12,  12,  14,  19,  26,  58,  60,  55,
@@ -152,9 +151,10 @@ static void initAllQualTabls() {
 }
 
 static int getQualFactor(uint16_t QualTabl[128]) {
+	static uint16_t AllQualTabls[100][128];
 	static char inited = 0;
 	if (!inited) {
-		initAllQualTabls();
+		initAllQualTabls(AllQualTabls);
 		inited = 1;
 	}
 	int final = -2, count = 0;
