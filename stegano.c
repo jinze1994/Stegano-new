@@ -75,6 +75,48 @@ static size_t makeChange(struct jpeg_decompress_struct* cinfo,
 	return used_bit;
 }
 
+static int readfrom(struct jpeg_decompress_struct* cinfo,
+		jvirt_barray_ptr* coeff_array, uint32_t component_id,
+		uint32_t* coeffsPos,
+		uint8_t* message) {
+
+	size_t message_len = 0;
+	for (int i = 0; i < 8; i++) {
+		JCOEFPTR coef = fetchCoefByPos(cinfo, coeff_array, component_id, coeffsPos[i], false);
+		if ((*coef) & 1)
+			message_len |= 1 << i;
+	}
+	if (message_len >= 256)
+		return 40;
+
+	memset(message, 0, (message_len+1) * sizeof(uint8_t));
+	for (size_t i = 0; i < message_len; i++)
+		for (size_t j = 0; j < 8; j++) {
+			size_t k = (i+1) * 8 + j;
+			JCOEFPTR coef = fetchCoefByPos(cinfo, coeff_array, component_id, coeffsPos[k], false);
+			if (*coef & 1)
+				message[i] |= 1 << j;
+		}
+
+	uint8_t sha1_in[SHA_DIGEST_LENGTH];
+	memset(sha1_in, 0, sizeof(sha1_in));
+	for (size_t i = 0; i < SHA_DIGEST_LENGTH; i++)
+		for (size_t j = 0; j < 8; j++) {
+			size_t k = (i+1+message_len) * 8 + j;
+			JCOEFPTR coef = fetchCoefByPos(cinfo, coeff_array, component_id, coeffsPos[k], false);
+			if (*coef & 1)
+				sha1_in[i] |= 1 << j;
+		}
+
+	uint8_t sha1[SHA_DIGEST_LENGTH];
+	SHA1(message, message_len, sha1);
+
+	if (memcmp(sha1, sha1_in, sizeof(sha1_in)))
+		return 40;
+
+	return 0;
+}
+
 static int writeback(struct jpeg_decompress_struct* cinfo_in, 
 		jvirt_barray_ptr* coeff_array,
 		FILE* outfile) {
@@ -97,7 +139,6 @@ static int writeback(struct jpeg_decompress_struct* cinfo_in,
 	jpeg_destroy_compress(&cinfo);
 	return 0;
 }
-
 
 int steganoEncode(FILE* infile, FILE* outfile,
 	const char* message, const char* password) {
@@ -154,7 +195,7 @@ int steganoEncode(FILE* infile, FILE* outfile,
 
 	uint8_t dataToHide[300 * 8]; size_t data_len;
 	size_t message_len = strlen(message);
-	if (message_len > 256) {
+	if (message_len >= 256) {
 		free(stream);
 		free(coeffsPos);
 		jpeg_destroy_decompress(&cinfo_in);
@@ -189,6 +230,69 @@ int steganoEncode(FILE* infile, FILE* outfile,
 	printf("%lf%%\n", used_bit * 100.0 / coeffs_len);
 
 	int rv = writeback(&cinfo_in, luma_coeff_array, outfile);
+
+	free(stream);
+	free(coeffsPos);
+	jpeg_destroy_decompress(&cinfo_in);
+	return rv;
+}
+
+int steganoDecode(FILE* infile, const char* password, char* message) {
+
+	jvirt_barray_ptr* luma_coeff_array = NULL;
+	size_t w, h, blocks;
+
+	struct jpeg_decompress_struct cinfo_in;
+	{
+		struct my_error_mgr jerr;
+		cinfo_in.err = jpeg_std_error(&jerr.pub);
+		jerr.pub.error_exit = my_error_exit;
+		if (setjmp(jerr.setjmp_buffer)) {
+			jpeg_destroy_decompress(&cinfo_in);
+			return 10;
+		}
+
+		jpeg_create_decompress(&cinfo_in);
+		jpeg_stdio_src(&cinfo_in, infile);
+		(void) jpeg_read_header(&cinfo_in, TRUE);
+
+		if (!checkJPEGScale(&cinfo_in)) {
+			jpeg_destroy_decompress(&cinfo_in);
+			return 50;
+		}
+
+		luma_coeff_array = jpeg_read_coefficients(&cinfo_in);
+		w = cinfo_in.image_width, h = cinfo_in.image_height;
+		blocks = w * h / 64;
+	}
+
+	uint32_t *coeffsPos; size_t coeffs_len;
+	coeffsPos = getValidCoeffs(blocks, &coeffs_len);
+	if (coeffsPos == NULL) {
+		jpeg_destroy_decompress(&cinfo_in);
+		return 20;
+	}
+
+	{
+		struct rgen rge;
+		rgen_init(&rge, password);
+		rgen_shuffle(&rge, coeffsPos, coeffs_len);
+		rgen_free(&rge);
+	}
+
+	uint8_t* stream = coeffsToStuckBitStream(&cinfo_in,
+			luma_coeff_array, 0,
+			coeffsPos, coeffs_len);
+	if (stream == NULL) {
+		free(coeffsPos);
+		jpeg_destroy_decompress(&cinfo_in);
+		return 20;
+	}
+
+	int rv = readfrom(&cinfo_in,
+			luma_coeff_array, 0,
+			coeffsPos,
+			(uint8_t*)message);
 
 	free(stream);
 	free(coeffsPos);

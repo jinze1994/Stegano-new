@@ -6,5 +6,8 @@ main: jpeg.c jpeg.h rgen.c rgen.h stegano.c stegano.h habit.h main.c
 write:
 	./main --write t1.jpg out.jpg password helloworld
 
+read:
+	./main --read out.jpg password
+
 clean:
 	rm -f main tmp.jpg out.jpg

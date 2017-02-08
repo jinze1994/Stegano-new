@@ -29,8 +29,6 @@ int main(int argc, char* argv[]) {
 		output_file = fopen(output_filename, "w");
 		Assert(output_file != NULL, "Failed to open %s\n", output_filename);
 	}
-	FILE* stdlog = stdout;
-	Assert(stdlog != NULL, "Failed to open stdlog\n");
 
 	// Process Command
 	int rv = 0;
@@ -40,6 +38,12 @@ int main(int argc, char* argv[]) {
 		if (rv) goto cleanup;
 
 	} else if (!strcmp(cmd, "--read")) {
+
+		char buf[256];
+		rv = steganoDecode(input_file, password, buf);
+		if (rv) goto cleanup;
+
+		printf("Decode Success!\nMessage: %s\n", buf);
 
 	} else if (!strcmp(cmd, "--write")) {
 		rep_file = tmpfile();
@@ -56,6 +60,8 @@ int main(int argc, char* argv[]) {
 
 		rv = steganoEncode(rep_file, output_file, message, password);
 		if (rv) goto cleanup;
+
+		printf("Encode Success!\n");
 
 	} else
 		Panic("Wrong command\n");
