@@ -1,5 +1,6 @@
 #include "mlbc.h"
 #include "matrix.h"
+#include <string.h>
 
 static const uint8_t G1A[K][N] = {
 	{1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,1},
@@ -98,4 +99,12 @@ void destroyMLBC() {
 	destroyMatrix((struct Matrix*)G0);
 	destroyMatrix((struct Matrix*)Ht);
 	destroyMatrix((struct Matrix*)Jt);
+}
+
+void toBin(const uint8_t* src, size_t src_len, uint8_t* dst, size_t* dst_len) {
+	for (int i = (int)src_len-1; i >= 0; i--)
+		for (int j = 7; j >= 0; j--)
+			dst[i * 8 + j] = (src[i] >> j) & 1;
+	if (dst_len)
+		*dst_len = src_len * 8;
 }

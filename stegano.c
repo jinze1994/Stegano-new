@@ -218,10 +218,7 @@ int steganoEncode(FILE* infile, FILE* outfile,
 	if (data_len > coeffs_len)
 		return destroyCleanUp(&clu, 10);
 
-	for (int i = (int)data_len-1; i >= 0; i--)
-		for (int j = 7; j >= 0; j--)
-			dataToHide[i * 8 + j] = (dataToHide[i] >> j) & 1;
-	data_len *= 8;
+	toBin(dataToHide, data_len, dataToHide, &data_len);
 
 	size_t used_bit = makeChange(&cinfo_in, luma_coeff_array, 0,
 			coeffsPos,
