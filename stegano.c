@@ -1,5 +1,6 @@
 #include "stegano.h"
 #include "rgen.h"
+#include <openssl/sha.h>
 
 static bool checkJPEGScale(struct jpeg_decompress_struct* cinfo) {
 	if (cinfo->comp_info[0].downsampled_width % DCTSIZE)
@@ -25,18 +26,19 @@ static uint32_t* getValidCoeffs(size_t blocks, size_t* n) {
 	return coeffsPos;
 }
 
-static inline JCOEF fetchCoefByPos(struct jpeg_decompress_struct* cinfo,
+static inline JCOEFPTR fetchCoefByPos(struct jpeg_decompress_struct* cinfo,
 	jvirt_barray_ptr* coeff_array, uint32_t component_id,
-	uint32_t coeffsPos) {
+	uint32_t coeffsPos,
+	bool modified) {
 
 	uint32_t block_id = coeffsPos / DCTSIZE2, k = coeffsPos % DCTSIZE2;
 	uint32_t block_x = block_id / cinfo->comp_info[component_id].width_in_blocks;
 	uint32_t block_y = block_id % cinfo->comp_info[component_id].width_in_blocks;
 	JBLOCKARRAY B = (cinfo->mem -> access_virt_barray)((j_common_ptr)cinfo,
 			coeff_array[component_id],
-			block_x, 1, FALSE);
+			block_x, 1, modified);
 	JCOEFPTR dctblck = B[0][block_y];
-	JCOEF coef = dctblck[k];
+	JCOEFPTR coef = &dctblck[k];
 	return coef;
 }
 
@@ -48,13 +50,29 @@ static uint8_t* coeffsToStuckBitStream(struct jpeg_decompress_struct* cinfo,
 	if (stream == NULL) return NULL;
 
 	for (size_t i = 0; i < coeffs_len; i++) {
-		JCOEF coef = fetchCoefByPos(cinfo, coeff_array, component_id, coeffsPos[i]);
-		if (coef == 0)
+		JCOEFPTR coef = fetchCoefByPos(cinfo, coeff_array, component_id, coeffsPos[i], false);
+		if (*coef == 0)
 			stream[i] = 0;
 		else
 			stream[i] = 1;
 	}
 	return stream;
+}
+
+static size_t makeChange(struct jpeg_decompress_struct* cinfo,
+	jvirt_barray_ptr* coeff_array, uint32_t component_id,
+	uint32_t* coeffsPos,
+	uint8_t* dataToHide, size_t data_len) {
+
+	size_t used_bit = 0;
+
+	for (size_t i = 0; i < data_len; i++) {
+		JCOEFPTR coef = fetchCoefByPos(cinfo, coeff_array, component_id, coeffsPos[i], true);
+		uint8_t lsb = (*coef) & 1;
+		if (lsb != dataToHide[i])
+			*coef ^= 1, used_bit++;
+	}
+	return used_bit;
 }
 
 int steganoEncode(FILE* infile, FILE* outfile,
@@ -110,11 +128,41 @@ int steganoEncode(FILE* infile, FILE* outfile,
 		return 20;
 	}
 
-	int cnt = 0;
-	for (int i = 0; i < coeffs_len; i++)
-		if (stream[i])
-			cnt++;
-	printf("%d %lf\n", cnt, cnt * 1.0 / coeffs_len);
+	uint8_t dataToHide[300 * 8]; size_t data_len;
+	size_t message_len = strlen(message);
+	if (message_len > 256) {
+		free(stream);
+		free(coeffsPos);
+		jpeg_destroy_decompress(&cinfo_in);
+		return 10;
+	}
+	dataToHide[0] = (uint8_t)message_len;
+	memcpy(dataToHide+1, message, message_len);
+
+	uint8_t sha1[SHA_DIGEST_LENGTH];
+	SHA1((const unsigned char*)message, message_len, sha1);
+	memcpy(dataToHide+1+message_len, sha1, SHA_DIGEST_LENGTH);
+	data_len = 1 + message_len + SHA_DIGEST_LENGTH;
+	if (data_len > coeffs_len) {
+		free(stream);
+		free(coeffsPos);
+		jpeg_destroy_decompress(&cinfo_in);
+		return 10;
+	}
+
+	for (int i = (int)data_len-1; i >= 0; i--)
+		for (int j = 7; j >= 0; j--)
+			dataToHide[i * 8 + j] = (dataToHide[i] >> j) & 1;
+	data_len *= 8;
+
+	size_t used_bit = makeChange(&cinfo_in, luma_coeff_array, 0,
+			coeffsPos,
+			dataToHide, data_len);
+	printf("data_bype_len:\t%lu\n", data_len/8);
+	printf("data_bit_len:\t%lu\n", data_len);
+	printf("coeffs_len:\t%lu\n", coeffs_len);
+	printf("used_bit:\t%lu\n", used_bit);
+	printf("%lf%%\n", used_bit * 100.0 / coeffs_len);
 
 	free(stream);
 	free(coeffsPos);
