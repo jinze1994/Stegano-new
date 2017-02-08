@@ -13,6 +13,8 @@ struct my_error_mgr {
 	jmp_buf setjmp_buffer;
 };
 
+const char * stegano_describe(int code);
+
 void my_error_exit (j_common_ptr cinfo);
 
 int jpegChangeQuantity(FILE* infile, FILE* repfile, int quantity);

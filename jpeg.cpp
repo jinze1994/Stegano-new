@@ -1,6 +1,6 @@
 #include "jpeg.h"
 
-const char * steganolab_describe(int code) {
+const char * stegano_describe(int code) {
 	switch(code) {
 		case 0:
 			return "OK";
@@ -16,6 +16,8 @@ const char * steganolab_describe(int code) {
 			return "Error writing file copy";
 		case 40:
 			return "Only garbage found";
+		case 50:
+			return "Jpeg scale error";
 	}
 	return "Unknown error";
 }

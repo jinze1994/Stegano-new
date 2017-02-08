@@ -1,5 +1,5 @@
-#ifndef MLBC_H
-#define MLBC_H
+#ifndef STEGANO_H
+#define STEGANO_H
 
 #include "habit.h"
 #include "jpeg.h"

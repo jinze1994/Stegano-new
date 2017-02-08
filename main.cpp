@@ -1,4 +1,4 @@
-#include "mlbc.h"
+#include "stegano.h"
 
 const char* msg_usage = 
 "Usage:  %s --write    [input_filename] [output_filename] [password] [message]\n"
@@ -36,6 +36,9 @@ int main(int argc, char* argv[]) {
 	int rv = 0;
 	if (!strcmp(cmd, "--estimate")) {
 
+		rv = printJpegQuantity(input_file);
+		if (rv) goto cleanup;
+
 	} else if (!strcmp(cmd, "--read")) {
 
 	} else if (!strcmp(cmd, "--write")) {
@@ -52,12 +55,16 @@ int main(int argc, char* argv[]) {
 		rewind(rep_file);
 
 		rv = steganoEncode(rep_file, output_file, message, password);
+		if (rv) goto cleanup;
 
 	} else
 		Panic("Wrong command\n");
 
 	// Clean up
 cleanup:
+	if (rv)
+		printf("%s\n", stegano_describe(rv));
+
 	if (input_file)
 		fclose(input_file);
 	if (output_file)
