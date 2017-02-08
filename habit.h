@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 static inline void Panic(const char* fmt, ...) {
 	va_list ap;

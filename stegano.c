@@ -1,16 +1,5 @@
 #include "stegano.h"
-
-static int getValidCoeffs(size_t blocks, uint32_t** ptr, size_t* n) {
-	uint32_t* coeffs = (uint32_t*) malloc(blocks * sizeof(uint32_t));
-	if (coeffs == NULL) return 20;
-
-	for (size_t i = 0; i < blocks; i++)
-		coeffs[i] = i * 64 + 1;
-
-	*ptr = coeffs;
-	*n = blocks;
-	return 0;
-}
+#include "rgen.h"
 
 static bool checkJPEGScale(struct jpeg_decompress_struct* cinfo) {
 	if (cinfo->comp_info[0].downsampled_width % DCTSIZE)
@@ -23,6 +12,18 @@ static bool checkJPEGScale(struct jpeg_decompress_struct* cinfo) {
 		return false;
 
 	return true;
+}
+
+static int getValidCoeffs(size_t blocks, uint32_t** ptr, size_t* n) {
+	uint32_t* coeffs = (uint32_t*) malloc(blocks * sizeof(uint32_t));
+	if (coeffs == NULL) return 20;
+
+	for (size_t i = 0; i < blocks; i++)
+		coeffs[i] = i * 64 + 1;
+
+	*ptr = coeffs;
+	*n = blocks;
+	return 0;
 }
 
 int steganoEncode(FILE* infile, FILE* outfile,
@@ -61,6 +62,13 @@ int steganoEncode(FILE* infile, FILE* outfile,
 	if (rv) {
 		jpeg_destroy_decompress(&cinfo_in);
 		return rv;
+	}
+
+	{
+		struct rgen rge;
+		rgen_init(&rge, password);
+		rgen_shuffle(&rge, coeffs, coeffs_len);
+		rgen_free(&rge);
 	}
 
 	free(coeffs);
