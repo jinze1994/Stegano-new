@@ -1,4 +1,5 @@
 #include "stegano.h"
+#include "mlbc.h"
 
 const char* msg_usage = 
 "Usage:  %s --write    [input_filename] [output_filename] [password] [message]\n"
@@ -29,6 +30,8 @@ int main(int argc, char* argv[]) {
 		output_file = fopen(output_filename, "w");
 		Assert(output_file != NULL, "Failed to open %s\n", output_filename);
 	}
+
+	initMLBC();
 
 	// Process Command
 	int rv = 0;
@@ -68,6 +71,7 @@ int main(int argc, char* argv[]) {
 
 	// Clean up
 cleanup:
+	destroyMLBC();
 	if (rv)
 		printf("%s\n", stegano_describe(rv));
 

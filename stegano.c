@@ -1,5 +1,6 @@
 #include "stegano.h"
 #include "rgen.h"
+#include "mlbc.h"
 #include <openssl/sha.h>
 
 static bool checkJPEGScale(struct jpeg_decompress_struct* cinfo) {

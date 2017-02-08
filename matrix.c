@@ -1,18 +1,19 @@
 #include "matrix.h"
-#include <string.h>
-#include <stdlib.h>
-#include <assert.h>
+#include "habit.h"
 
 struct Matrix* newMatrix(uint32_t r, uint32_t c) {
 	struct Matrix* m = (struct Matrix*) malloc(sizeof(struct Matrix));
-	if (m == NULL) return NULL;
-	assert(r != 0 && c != 0);
+	Assert(m != NULL, "No enough memory\n");
+	Assert(r != 0 && c != 0, "New matrix error\n");
 	m->r = r, m->c = c;
 	m->buf = calloc(r * c, 1);
-	if (m->buf == NULL) {
-		free(m);
-		return NULL;
-	}
+	Assert(m->buf != NULL, "No enough memory\n");
+	return m;
+}
+
+struct Matrix* newMatrixA(uint32_t r, uint32_t c, const uint8_t* array) {
+	struct Matrix* m = newMatrix(r, c);
+	memcpy(m->buf, array, r * c);
 	return m;
 }
 
@@ -23,26 +24,26 @@ void destroyMatrix(struct Matrix* m) {
 	}
 }
 
-struct Matrix* matrixDup(struct Matrix* m) {
+struct Matrix* matrixDup(const struct Matrix* m) {
 	struct Matrix* a = newMatrix(m->r, m->c);
 	memcpy(a->buf, m->buf, m->r * m->c);
 	return a;
 }
 
-void matrixAdd(struct Matrix* a, struct Matrix* b) {
-	assert(a->r == b->r && a->c == b->c);
+void matrixAdd(struct Matrix* a, const struct Matrix* b) {
+	Assert(a->r == b->r && a->c == b->c, "Matrix add error\n");
 	for (uint32_t i = 0; i < a->r; i++)
 		for (uint32_t j = 0; j < a->c; j++)
 			a->buf[i * a->c + j] ^= b->buf[i * b->c + j];
 }
 
-bool matrixEqual(struct Matrix* a, struct Matrix* b) {
-	assert(a->r == b->r && a->c == b->c);
+bool matrixEqual(const struct Matrix* a, const struct Matrix* b) {
+	Assert(a->r == b->r && a->c == b->c, "Matrix equal error\n");
 	return !memcmp(a->buf, b->buf, a->r * a->c);
 }
 
-struct Matrix* matrixMul(struct Matrix* a, struct Matrix* b) {
-	assert(a->c == b->r);
+struct Matrix* matrixMul(const struct Matrix* a, const struct Matrix* b) {
+	Assert(a->c == b->r, "Matrix mul error\n");
 	struct Matrix* c = newMatrix(a->r, b->c);
 	for (uint32_t i = 0; i < a->r; i++)
 		for (uint32_t j = 0; j < b->c; j++)
