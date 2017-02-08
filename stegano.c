@@ -65,14 +65,18 @@ static size_t makeChange(struct jpeg_decompress_struct* cinfo,
 	uint32_t* coeffsPos,
 	uint8_t* dataToHide, size_t data_len) {
 
-	size_t used_bit = 0;
+	size_t used_bit = 0, stuck_bit = 0;
 
 	for (size_t i = 0; i < data_len; i++) {
 		JCOEFPTR coef = fetchCoefByPos(cinfo, coeff_array, component_id, coeffsPos[i], true);
 		uint8_t lsb = (*coef) & 1;
-		if (lsb != dataToHide[i])
+		if (lsb != dataToHide[i]) {
 			*coef ^= 1, used_bit++;
+			if (*coef)
+				stuck_bit++;
+		}
 	}
+	printf("stuck_bit: %lu\n", stuck_bit);
 	return used_bit;
 }
 
@@ -145,6 +149,7 @@ struct Cleanup {
 	struct jpeg_decompress_struct* cinfo;
 	uint32_t* coeffsPos;
 	uint8_t* stream;
+	uint8_t* dataToHide;
 };
 
 static int destroyCleanUp(struct Cleanup* clu, int rv) {
@@ -152,6 +157,8 @@ static int destroyCleanUp(struct Cleanup* clu, int rv) {
 		free(clu->stream);
 	if (clu->coeffsPos)
 		free(clu->coeffsPos);
+	if (clu->dataToHide)
+		free(clu->dataToHide);
 	if (clu->cinfo)
 		jpeg_destroy_decompress(clu->cinfo);
 	return rv;
@@ -164,7 +171,7 @@ int steganoEncode(FILE* infile, FILE* outfile,
 	size_t w, h, blocks;
 
 	struct jpeg_decompress_struct cinfo_in;
-	struct Cleanup clu = {&cinfo_in, NULL, NULL};
+	struct Cleanup clu = {&cinfo_in, NULL, NULL, NULL};
 	{
 		struct my_error_mgr jerr;
 		cinfo_in.err = jpeg_std_error(&jerr.pub);
@@ -203,33 +210,24 @@ int steganoEncode(FILE* infile, FILE* outfile,
 	if (stream == NULL)
 		return destroyCleanUp(&clu, 20);
 
-	uint8_t dataToHide[300 * 8]; size_t data_len;
 	size_t message_len = strlen(message);
 	if (message_len >= 256)
 		return destroyCleanUp(&clu, 10);
 
-	dataToHide[0] = (uint8_t)message_len;
-	memcpy(dataToHide+1, message, message_len);
+	uint8_t* dataToHide; size_t data_len;
+	int rv = encodeLongMessage((const uint8_t*)message, message_len,
+			stream, coeffs_len,
+			&dataToHide, &data_len);
+	if (rv) return destroyCleanUp(&clu, rv);
+	clu.dataToHide = dataToHide;
 
-	uint8_t sha1[SHA_DIGEST_LENGTH];
-	SHA1((const unsigned char*)message, message_len, sha1);
-	memcpy(dataToHide+1+message_len, sha1, SHA_DIGEST_LENGTH);
-	data_len = 1 + message_len + SHA_DIGEST_LENGTH;
-	if (data_len > coeffs_len)
-		return destroyCleanUp(&clu, 10);
-
-	toBin(dataToHide, data_len, dataToHide, &data_len);
-
-	size_t used_bit = makeChange(&cinfo_in, luma_coeff_array, 0,
+	size_t modify_bit = makeChange(&cinfo_in, luma_coeff_array, 0,
 			coeffsPos,
 			dataToHide, data_len);
-	printf("data_bype_len:\t%lu\n", data_len/8);
-	printf("data_bit_len:\t%lu\n", data_len);
-	printf("coeffs_len:\t%lu\n", coeffs_len);
-	printf("used_bit:\t%lu\n", used_bit);
-	printf("%lf%%\n", used_bit * 100.0 / coeffs_len);
+	printf("avail_bit:%lu\tmodify_bit: %lu\tpercent: %.2lf%%\n",
+			coeffs_len, modify_bit, modify_bit * 100.0 / coeffs_len);
 
-	int rv = writeback(&cinfo_in, luma_coeff_array, outfile);
+	rv = writeback(&cinfo_in, luma_coeff_array, outfile);
 
 	// cleanup:
 	return destroyCleanUp(&clu, rv);
@@ -241,7 +239,7 @@ int steganoDecode(FILE* infile, const char* password, char* message) {
 	size_t w, h, blocks;
 
 	struct jpeg_decompress_struct cinfo_in;
-	struct Cleanup clu = {&cinfo_in, NULL, NULL};
+	struct Cleanup clu = {&cinfo_in, NULL, NULL, NULL};
 	{
 		struct my_error_mgr jerr;
 		cinfo_in.err = jpeg_std_error(&jerr.pub);
