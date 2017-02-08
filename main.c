@@ -42,8 +42,8 @@ int main(int argc, char* argv[]) {
 	} else if (!strcmp(cmd, "--read")) {
 
 	} else if (!strcmp(cmd, "--write")) {
-		// rep_file = tmpfile();
-		rep_file = fopen("tmp.jpg", "w+b");
+		rep_file = tmpfile();
+		// rep_file = fopen("tmp.jpg", "w+b");
 		Assert(rep_file != NULL, "Failed to open temp file\n");
 
 		rv = jpegChangeQuantity(input_file, rep_file, 65);

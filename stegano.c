@@ -75,6 +75,30 @@ static size_t makeChange(struct jpeg_decompress_struct* cinfo,
 	return used_bit;
 }
 
+static int writeback(struct jpeg_decompress_struct* cinfo_in, 
+		jvirt_barray_ptr* coeff_array,
+		FILE* outfile) {
+
+	struct jpeg_compress_struct cinfo;
+	struct my_error_mgr jerr;
+	cinfo.err = jpeg_std_error(&jerr.pub);
+	jerr.pub.error_exit = my_error_exit;
+	if (setjmp(jerr.setjmp_buffer)) {
+		jpeg_destroy_compress(&cinfo);
+		return 10;
+	}
+
+	jpeg_create_compress(&cinfo);
+	jpeg_stdio_dest(&cinfo, outfile);
+	jpeg_copy_critical_parameters(cinfo_in, &cinfo);
+	jpeg_write_coefficients(&cinfo, coeff_array);
+
+	jpeg_finish_compress(&cinfo);
+	jpeg_destroy_compress(&cinfo);
+	return 0;
+}
+
+
 int steganoEncode(FILE* infile, FILE* outfile,
 	const char* message, const char* password) {
 
@@ -164,8 +188,10 @@ int steganoEncode(FILE* infile, FILE* outfile,
 	printf("used_bit:\t%lu\n", used_bit);
 	printf("%lf%%\n", used_bit * 100.0 / coeffs_len);
 
+	int rv = writeback(&cinfo_in, luma_coeff_array, outfile);
+
 	free(stream);
 	free(coeffsPos);
 	jpeg_destroy_decompress(&cinfo_in);
-	return 0;
+	return rv;
 }
