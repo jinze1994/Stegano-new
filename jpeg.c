@@ -33,74 +33,48 @@ void my_error_exit (j_common_ptr cinfo) {
 }
 
 int jpegChangeQuantity(FILE* infile, FILE* repfile, int quantity) {
-	uint8_t* data = NULL;
 	struct jpeg_decompress_struct cinfo_in;
-	{
-		struct my_error_mgr jerr;
-		cinfo_in.err = jpeg_std_error(&jerr.pub);
-		jerr.pub.error_exit = my_error_exit;
-		if (setjmp(jerr.setjmp_buffer)) {
-			jpeg_destroy_decompress(&cinfo_in);
-			return 10;
-		}
-	
-		jpeg_create_decompress(&cinfo_in);
-		jpeg_stdio_src(&cinfo_in, infile);
-		(void) jpeg_read_header(&cinfo_in, TRUE);
+	struct jpeg_compress_struct cinfo_out;
 
-		data = (uint8_t*)malloc(cinfo_in.image_width * cinfo_in.image_height * cinfo_in.num_components);
-		if (data == NULL) {
-			jpeg_destroy_decompress(&cinfo_in);
-			return 20;
-		}
-	
-		(void) jpeg_start_decompress(&cinfo_in);
-		JSAMPROW row_pointer[1];
-		while (cinfo_in.output_scanline < cinfo_in.output_height) {
-			row_pointer[0] = &data[cinfo_in.output_scanline*cinfo_in.image_width*cinfo_in.num_components];
-			jpeg_read_scanlines(&cinfo_in, row_pointer, 1);
-		}
+	struct my_error_mgr jerr;
+	cinfo_in.err = jpeg_std_error(&jerr.pub);
+	cinfo_out.err = jpeg_std_error(&jerr.pub);
+	jerr.pub.error_exit = my_error_exit;
+	if (setjmp(jerr.setjmp_buffer)) {
+		jpeg_destroy_decompress(&cinfo_in);
+		jpeg_destroy_compress(&cinfo_out);
+		return 10;
 	}
+	
+	jpeg_create_decompress(&cinfo_in);
+	jpeg_create_compress(&cinfo_out);
+	jpeg_stdio_src(&cinfo_in, infile);
+	jpeg_stdio_dest(&cinfo_out, repfile);
+	jpeg_read_header(&cinfo_in, TRUE);
 
-	{
-		struct jpeg_compress_struct cinfo;
-		struct my_error_mgr jerr;
-		cinfo.err = jpeg_std_error(&jerr.pub);
-		jerr.pub.error_exit = my_error_exit;
-		if (setjmp(jerr.setjmp_buffer)) {
-			jpeg_destroy_decompress(&cinfo_in);
-			jpeg_destroy_compress(&cinfo);
-			free(data);
-			return 10;
-		}
-
-		jpeg_create_compress(&cinfo);
-		jpeg_stdio_dest(&cinfo, repfile);
-
-		cinfo.image_width = cinfo_in.image_width;
-		cinfo.image_height = cinfo_in.image_height;
-		cinfo.input_components = cinfo_in.num_components;
-		cinfo.in_color_space = JCS_RGB;
-		jpeg_set_defaults(&cinfo);
-		jpeg_set_quality(&cinfo, quantity, TRUE);
-
-		jpeg_start_compress(&cinfo, TRUE);
-
-		int row_stride = cinfo_in.image_width * cinfo_in.num_components;
-		JSAMPROW row_pointer[1];
-		while (cinfo.next_scanline < cinfo.image_height) {
-			row_pointer[0] = &data[cinfo.next_scanline * row_stride];
-			(void) jpeg_write_scanlines(&cinfo, row_pointer, 1);
-		}
-
-		/*clean-up*/
-		jpeg_finish_compress(&cinfo);
-		jpeg_destroy_compress(&cinfo);
+	cinfo_out.image_width = cinfo_in.image_width;
+	cinfo_out.image_height = cinfo_in.image_height;
+	cinfo_out.input_components = cinfo_in.num_components;
+	cinfo_out.in_color_space = JCS_RGB;
+	jpeg_set_defaults(&cinfo_out);
+	jpeg_set_quality(&cinfo_out, quantity, TRUE);
+	
+	jpeg_start_decompress(&cinfo_in);
+	jpeg_start_compress(&cinfo_out, TRUE);
+	JSAMPROW row_pointer[1];
+	row_pointer[0] = malloc(cinfo_in.image_width * cinfo_in.num_components);
+	while (cinfo_in.output_scanline < cinfo_in.output_height) {
+		jpeg_read_scanlines(&cinfo_in, row_pointer, 1);
+		jpeg_write_scanlines(&cinfo_out, row_pointer, 1);
 	}
-	(void) jpeg_finish_decompress(&cinfo_in);
+	free(row_pointer[0]);
+
+	/*clean-up*/
+	jpeg_finish_decompress(&cinfo_in);
+	jpeg_finish_compress(&cinfo_out);
 	jpeg_destroy_decompress(&cinfo_in);
+	jpeg_destroy_compress(&cinfo_out);
 
-	free(data);
 	return 0;
 }
 
