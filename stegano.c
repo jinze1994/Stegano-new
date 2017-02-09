@@ -168,7 +168,7 @@ int steganoEncode(FILE* infile, FILE* outfile,
 	const char* message, const char* password) {
 
 	jvirt_barray_ptr* luma_coeff_array = NULL;
-	size_t w, h, blocks;
+	size_t blocks;
 
 	struct jpeg_decompress_struct cinfo_in;
 	struct Cleanup clu = {&cinfo_in, NULL, NULL, NULL};
@@ -187,8 +187,7 @@ int steganoEncode(FILE* infile, FILE* outfile,
 			return destroyCleanUp(&clu, 50);
 
 		luma_coeff_array = jpeg_read_coefficients(&cinfo_in);
-		w = cinfo_in.image_width, h = cinfo_in.image_height;
-		blocks = w * h / 64;
+		blocks = cinfo_in.image_width * cinfo_in.image_height / 64;
 	}
 
 	uint32_t *coeffsPos; size_t coeffs_len;
@@ -236,7 +235,7 @@ int steganoEncode(FILE* infile, FILE* outfile,
 int steganoDecode(FILE* infile, const char* password, char* message) {
 
 	jvirt_barray_ptr* luma_coeff_array = NULL;
-	size_t w, h, blocks;
+	size_t blocks;
 
 	struct jpeg_decompress_struct cinfo_in;
 	struct Cleanup clu = {&cinfo_in, NULL, NULL, NULL};
@@ -255,8 +254,7 @@ int steganoDecode(FILE* infile, const char* password, char* message) {
 			return destroyCleanUp(&clu, 50);
 
 		luma_coeff_array = jpeg_read_coefficients(&cinfo_in);
-		w = cinfo_in.image_width, h = cinfo_in.image_height;
-		blocks = w * h / 64;
+		blocks = cinfo_in.image_width * cinfo_in.image_height / 64;
 	}
 
 	uint32_t *coeffsPos; size_t coeffs_len;
