@@ -103,7 +103,7 @@ void destroyMLBC() {
 	destroyMatrix((struct Matrix*)Jt);
 }
 
-void toBin(const uint8_t* src, size_t src_len, uint8_t* dst, size_t* dst_len) {
+static void ChartoBin(const uint8_t* src, size_t src_len, uint8_t* dst, size_t* dst_len) {
 	for (int i = (int)src_len-1; i >= 0; i--)
 		for (int j = 7; j >= 0; j--)
 			dst[i * 8 + j] = (src[i] >> j) & 1;
@@ -123,7 +123,20 @@ static void printEmbedInfo(size_t rge_len, size_t mess_len,
 			data_bit, mlbc_cnt, data_N_bit_len);
 }
 
-static void encodeMessage(const uint8_t in_buf[K], uint8_t out_buf[N], const uint8_t stream[N]) {
+static void minimizeWetBits(struct Matrix* stream, struct Matrix* origMessage) {
+}
+
+static void encodeMessage(const uint8_t in_buf[K], uint8_t out_buf[N], const uint8_t streamA[N]) {
+
+	struct Matrix* stream = newMatrixA(1, N, streamA);
+	struct Matrix* message = newMatrixA(1, K, in_buf);
+	struct Matrix* encodedMessage = matrixMul(message, G1);
+
+	minimizeWetBits(stream, encodedMessage);
+
+	destroyMatrix(message);
+	destroyMatrix(stream);
+	destroyMatrix(encodedMessage);
 
 	stream = stream;
 	memcpy(out_buf, in_buf, K);
@@ -159,9 +172,9 @@ int encodeLongMessage(const uint8_t* message, uint8_t message_len,
 
 	uint8_t rge_data[rge_len];
 	rgen_produce_nbytes(rge, rge_len, rge_data);
-	toBin(rge_data, rge_len, dataToHide + 8*K, NULL);
+	ChartoBin(rge_data, rge_len, dataToHide + 8*K, NULL);
 
-	toBin(message, message_len, dataToHide + 8*K + rge_len*8, NULL);
+	ChartoBin(message, message_len, dataToHide + 8*K + rge_len*8, NULL);
 
 	data_len /= K;
 	for (int i = (int)data_len-1; i >= 0; i--) {
