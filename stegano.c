@@ -120,6 +120,7 @@ static int writeback(struct jpeg_decompress_struct* cinfo_in,
 struct Cleanup {
 	struct jpeg_decompress_struct* cinfo;
 	uint32_t* coeffsPos;
+	struct rgen* rge;
 	uint8_t* stream;
 	uint8_t* dataToHide;
 };
@@ -129,6 +130,8 @@ static int destroyCleanUp(struct Cleanup* clu, int rv) {
 		free(clu->stream);
 	if (clu->coeffsPos)
 		free(clu->coeffsPos);
+	if (clu->rge)
+		rgen_free(clu->rge);
 	if (clu->dataToHide)
 		free(clu->dataToHide);
 	if (clu->cinfo)
@@ -143,7 +146,7 @@ int steganoEncode(FILE* infile, FILE* outfile,
 	size_t blocks;
 
 	struct jpeg_decompress_struct cinfo_in;
-	struct Cleanup clu = {&cinfo_in, NULL, NULL, NULL};
+	struct Cleanup clu = {&cinfo_in, NULL, NULL, NULL, NULL};
 	{
 		struct my_error_mgr jerr;
 		cinfo_in.err = jpeg_std_error(&jerr.pub);
@@ -167,12 +170,10 @@ int steganoEncode(FILE* infile, FILE* outfile,
 	if (coeffsPos == NULL)
 		return destroyCleanUp(&clu, 20);
 
-	{
-		struct rgen rge;
-		rgen_init(&rge, password);
-		rgen_shuffle(&rge, coeffsPos, coeffs_len);
-		rgen_free(&rge);
-	}
+	struct rgen rge;
+	rgen_init(&rge, password);
+	clu.rge = &rge;
+	rgen_shuffle(&rge, coeffsPos, coeffs_len);
 
 	uint8_t* stream;
 	clu.stream = stream = coeffsToStuckBitStream(&cinfo_in,
@@ -188,6 +189,7 @@ int steganoEncode(FILE* infile, FILE* outfile,
 	uint8_t* dataToHide; size_t data_len;
 	int rv = encodeLongMessage((const uint8_t*)message, message_len,
 			stream, coeffs_len,
+			&rge,
 			&dataToHide, &data_len);
 	if (rv) return destroyCleanUp(&clu, rv);
 	clu.dataToHide = dataToHide;
@@ -210,7 +212,7 @@ int steganoDecode(FILE* infile, const char* password, char* message) {
 	size_t blocks;
 
 	struct jpeg_decompress_struct cinfo_in;
-	struct Cleanup clu = {&cinfo_in, NULL, NULL, NULL};
+	struct Cleanup clu = {&cinfo_in, NULL, NULL, NULL, NULL};
 	{
 		struct my_error_mgr jerr;
 		cinfo_in.err = jpeg_std_error(&jerr.pub);
@@ -234,12 +236,10 @@ int steganoDecode(FILE* infile, const char* password, char* message) {
 	if (coeffsPos == NULL)
 		return destroyCleanUp(&clu, 20);
 
-	{
-		struct rgen rge;
-		rgen_init(&rge, password);
-		rgen_shuffle(&rge, coeffsPos, coeffs_len);
-		rgen_free(&rge);
-	}
+	struct rgen rge;
+	rgen_init(&rge, password);
+	clu.rge = &rge;
+	rgen_shuffle(&rge, coeffsPos, coeffs_len);
 
 	uint8_t* stream;
 	clu.stream = stream = coeffsToStream(&cinfo_in,
@@ -248,7 +248,7 @@ int steganoDecode(FILE* infile, const char* password, char* message) {
 	if (stream == NULL)
 		return destroyCleanUp(&clu, 20);
 
-	int rv = decodeLongMessage(stream, coeffs_len, (uint8_t*)message);
+	int rv = decodeLongMessage(stream, coeffs_len, &rge, (uint8_t*)message);
 
 	return destroyCleanUp(&clu, rv);
 }

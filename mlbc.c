@@ -2,8 +2,6 @@
 #include "matrix.h"
 #include <stdio.h>
 #include <string.h>
-#include <openssl/sha.h>
-
 #include <assert.h>
 
 static const uint8_t G1A[K][N] = {
@@ -113,14 +111,14 @@ void toBin(const uint8_t* src, size_t src_len, uint8_t* dst, size_t* dst_len) {
 		*dst_len = src_len * 8;
 }
 
-static void printEmbedInfo(size_t message_len, size_t sha1_len,
-		size_t len_bit, size_t message_bit, size_t sha1_bit,
+static void printEmbedInfo(size_t rge_len, size_t mess_len,
+		size_t len_bit, size_t rge_bit, size_t mess_bit,
 		size_t data_bit, size_t mlbc_cnt, size_t data_N_bit_len) {
 
-	printf("message_len: %lu\tsha1_len: %lu\n",
-			message_len, sha1_len);
-	printf("len_bit: %lu\tmess_bit: %lu\tsha1_bit: %lu\n",
-			len_bit, message_bit, sha1_bit);
+	printf("rge_len: %lu\tmess_len: %lu\n",
+			rge_len, mess_len);
+	printf("len_bit: %lu\trge_bit: %lu\tmess_bit: %lu\n",
+			len_bit, rge_bit, mess_bit);
 	printf("data_K_bit: %lu\tMLBC_cnt: %lu\tdata_N_bit: %lu\n",
 			data_bit, mlbc_cnt, data_N_bit_len);
 }
@@ -140,12 +138,15 @@ static void decodeMessage(const uint8_t in_buf[N], uint8_t out_buf[K]) {
 
 int encodeLongMessage(const uint8_t* message, uint8_t message_len,
 		const uint8_t* stream, size_t stream_len,
+		struct rgen* rge,
 		uint8_t** dataToHidePtr, size_t *data_len_ptr) {
 
-	size_t sha1_len = 2;
-	size_t data_len = 8*K + message_len*8 + sha1_len*8;
-	while (data_len % K)
-		data_len++;
+	size_t rge_len = K - (message_len % K);
+	size_t data_len = 8*K + rge_len*8 + message_len*8;
+	assert(data_len % K == 0);
+	printEmbedInfo(rge_len, message_len,
+			8 * K, rge_len * 8, message_len * 8,
+			data_len, data_len/K, data_len/K*N);
 
 	if (data_len / K * N >= stream_len || data_len >= 300 * 8) return 10;
 
@@ -155,17 +156,14 @@ int encodeLongMessage(const uint8_t* message, uint8_t message_len,
 	for (int i = 0; i < 8; i++)
 		for (int j = 0; j < K; j++)
 			dataToHide[i*K+j] = (message_len >> i) & 1;
-	toBin(message, message_len, dataToHide + 8*K, NULL);
 
-	uint8_t sha1[SHA_DIGEST_LENGTH];
-	SHA1((const unsigned char*)message, message_len, sha1);
-	toBin(sha1, sha1_len, dataToHide + 8*K + message_len*8, NULL);
+	uint8_t rge_data[rge_len];
+	rgen_produce_nbytes(rge, rge_len, rge_data);
+	toBin(rge_data, rge_len, dataToHide + 8*K, NULL);
 
-	data_len = 8*K + message_len*8 + sha1_len*8;
-	while (data_len % K)
-		dataToHide[data_len++] = 0;
+	toBin(message, message_len, dataToHide + 8*K + rge_len*8, NULL);
+
 	data_len /= K;
-
 	for (int i = (int)data_len-1; i >= 0; i--) {
 		uint8_t in_buf[K], out_buf[N];
 		memcpy(in_buf, dataToHide + i*K, K);
@@ -174,23 +172,19 @@ int encodeLongMessage(const uint8_t* message, uint8_t message_len,
 	}
 	data_len *= N;
 
-	printEmbedInfo(message_len, sha1_len,
-			8 * K, message_len * 8, sha1_len * 8,
-			data_len/N*K, data_len/N, data_len);
-
 	*dataToHidePtr = dataToHide;
 	*data_len_ptr = data_len;
 	return 0;
 }
 
 int decodeLongMessage(const uint8_t* stream, size_t stream_len,
-		uint8_t* message) {
+		struct rgen* rge, uint8_t* message) {
 
+	*message = 0;
 	int message_len = 0;
 	for (int i = 0; i < 8; i++) {
-		uint8_t in_buf[N], out_buf[K];
-		memcpy(in_buf, stream + i * N, N);
-		decodeMessage(in_buf, out_buf);
+		uint8_t out_buf[K];
+		decodeMessage(stream + i * N, out_buf);
 		size_t cnt1 = 0;
 		for (int j = 0; j < K; j++)
 			if (out_buf[j])
@@ -198,9 +192,41 @@ int decodeLongMessage(const uint8_t* stream, size_t stream_len,
 		uint8_t r = cnt1 > K / 2 ? 1 : 0;
 		message_len |= r << i;
 	}
-
 	stream += 8 * N;
-	*message = 0;
 
+	int rge_len = K - (message_len % K);
+	size_t data_len = 8*K + rge_len*8 + message_len*8;
+	if (stream_len <= data_len / K * N) return 40;
+
+	uint8_t* buf = malloc((rge_len + message_len) * 8);
+	if (buf == NULL) return 20;
+
+	int rest_mlbc_cnt = (rge_len + message_len) * 8 / K;
+	for (int i = 0; i < rest_mlbc_cnt; i++)
+		decodeMessage(stream + i * N, buf + i * K);
+
+	// Bin2Chars
+	for (int i = 0; i < rge_len + message_len; i++) {
+		uint8_t ch = 0;
+		for (int j = 0; j < 8; j++)
+			ch |= (buf[i * 8 + j] << j);
+		buf[i] = ch;
+	}
+
+	uint8_t rge_data[rge_len];
+	rgen_produce_nbytes(rge, rge_len, rge_data);
+
+	if (memcmp(rge_data, buf, rge_len)) {
+		free(buf);
+		return 40;
+	}
+
+	memcpy(message, buf + rge_len, message_len);
+	message[message_len] = 0;
+
+	free(buf);
+	printEmbedInfo(rge_len, message_len,
+			8 * K, rge_len * 8, message_len * 8,
+			data_len, data_len/K, data_len/K*N);
 	return 0;
 }
