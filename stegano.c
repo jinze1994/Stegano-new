@@ -80,46 +80,18 @@ static size_t makeChange(struct jpeg_decompress_struct* cinfo,
 	return used_bit;
 }
 
-static int readfrom(struct jpeg_decompress_struct* cinfo,
-		jvirt_barray_ptr* coeff_array, uint32_t component_id,
-		uint32_t* coeffsPos,
-		uint8_t* message) {
+static uint8_t* coeffsToStream(struct jpeg_decompress_struct* cinfo,
+	jvirt_barray_ptr* coeff_array, uint32_t component_id,
+	uint32_t* coeffsPos, size_t coeffs_len) {
 
-	size_t message_len = 0;
-	for (int i = 0; i < 8; i++) {
+	uint8_t* stream = malloc(coeffs_len * sizeof(uint8_t));
+	if (stream == NULL) return NULL;
+
+	for (size_t i = 0; i < coeffs_len; i++) {
 		JCOEFPTR coef = fetchCoefByPos(cinfo, coeff_array, component_id, coeffsPos[i], false);
-		if ((*coef) & 1)
-			message_len |= 1 << i;
+		stream[i] = (*coef) & 1;
 	}
-	if (message_len >= 256)
-		return 40;
-
-	memset(message, 0, (message_len+1) * sizeof(uint8_t));
-	for (size_t i = 0; i < message_len; i++)
-		for (size_t j = 0; j < 8; j++) {
-			size_t k = (i+1) * 8 + j;
-			JCOEFPTR coef = fetchCoefByPos(cinfo, coeff_array, component_id, coeffsPos[k], false);
-			if (*coef & 1)
-				message[i] |= 1 << j;
-		}
-
-	uint8_t sha1_in[SHA_DIGEST_LENGTH];
-	memset(sha1_in, 0, sizeof(sha1_in));
-	for (size_t i = 0; i < SHA_DIGEST_LENGTH; i++)
-		for (size_t j = 0; j < 8; j++) {
-			size_t k = (i+1+message_len) * 8 + j;
-			JCOEFPTR coef = fetchCoefByPos(cinfo, coeff_array, component_id, coeffsPos[k], false);
-			if (*coef & 1)
-				sha1_in[i] |= 1 << j;
-		}
-
-	uint8_t sha1[SHA_DIGEST_LENGTH];
-	SHA1(message, message_len, sha1);
-
-	if (memcmp(sha1, sha1_in, sizeof(sha1_in)))
-		return 40;
-
-	return 0;
+	return stream;
 }
 
 static int writeback(struct jpeg_decompress_struct* cinfo_in, 
@@ -270,16 +242,13 @@ int steganoDecode(FILE* infile, const char* password, char* message) {
 	}
 
 	uint8_t* stream;
-	clu.stream = stream = coeffsToStuckBitStream(&cinfo_in,
+	clu.stream = stream = coeffsToStream(&cinfo_in,
 			luma_coeff_array, 0,
 			coeffsPos, coeffs_len);
 	if (stream == NULL)
 		return destroyCleanUp(&clu, 20);
 
-	int rv = readfrom(&cinfo_in,
-			luma_coeff_array, 0,
-			coeffsPos,
-			(uint8_t*)message);
+	int rv = decodeLongMessage(stream, coeffs_len, (uint8_t*)message);
 
 	return destroyCleanUp(&clu, rv);
 }

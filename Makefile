@@ -11,7 +11,7 @@ read:
 
 valid:
 	valgrind ./main --write t1.jpg out.jpg password helloworld!
-	# valgrind ./main --read out.jpg password
+	valgrind ./main --read out.jpg password
 
 clean:
 	rm -f main tmp.jpg out.jpg

@@ -4,6 +4,8 @@
 #include <string.h>
 #include <openssl/sha.h>
 
+#include <assert.h>
+
 static const uint8_t G1A[K][N] = {
 	{1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,1},
 	{0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,0,0,0,1,0,0,0,0},
@@ -111,13 +113,6 @@ void toBin(const uint8_t* src, size_t src_len, uint8_t* dst, size_t* dst_len) {
 		*dst_len = src_len * 8;
 }
 
-static void encodeMessage(const uint8_t in_buf[K], uint8_t out_buf[N], const uint8_t stream[N]) {
-
-	stream = stream;
-	memcpy(out_buf, in_buf, K);
-	memset(out_buf + K, 0, N - K);
-}
-
 static void printEmbedInfo(size_t message_len, size_t sha1_len,
 		size_t len_bit, size_t message_bit, size_t sha1_bit,
 		size_t data_bit, size_t mlbc_cnt, size_t data_N_bit_len) {
@@ -128,6 +123,19 @@ static void printEmbedInfo(size_t message_len, size_t sha1_len,
 			len_bit, message_bit, sha1_bit);
 	printf("data_K_bit: %lu\tMLBC_cnt: %lu\tdata_N_bit: %lu\n",
 			data_bit, mlbc_cnt, data_N_bit_len);
+}
+
+static void encodeMessage(const uint8_t in_buf[K], uint8_t out_buf[N], const uint8_t stream[N]) {
+
+	stream = stream;
+	memcpy(out_buf, in_buf, K);
+	memset(out_buf + K, 0, N - K);
+}
+
+static void decodeMessage(const uint8_t in_buf[N], uint8_t out_buf[K]) {
+	memcpy(out_buf, in_buf, K);
+	for (int i = K; i < N; i++)
+		assert(in_buf[i] == 0);
 }
 
 int encodeLongMessage(const uint8_t* message, uint8_t message_len,
@@ -172,5 +180,27 @@ int encodeLongMessage(const uint8_t* message, uint8_t message_len,
 
 	*dataToHidePtr = dataToHide;
 	*data_len_ptr = data_len;
+	return 0;
+}
+
+int decodeLongMessage(const uint8_t* stream, size_t stream_len,
+		uint8_t* message) {
+
+	int message_len = 0;
+	for (int i = 0; i < 8; i++) {
+		uint8_t in_buf[N], out_buf[K];
+		memcpy(in_buf, stream + i * N, N);
+		decodeMessage(in_buf, out_buf);
+		size_t cnt1 = 0;
+		for (int j = 0; j < K; j++)
+			if (out_buf[j])
+				cnt1++;
+		uint8_t r = cnt1 > K / 2 ? 1 : 0;
+		message_len |= r << i;
+	}
+
+	stream += 8 * N;
+	*message = 0;
+
 	return 0;
 }
