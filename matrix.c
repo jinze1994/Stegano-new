@@ -36,8 +36,8 @@ void matrixMul(struct Matrix* a, struct Matrix* b, struct Matrix* c) {
 }
 
 void matrixPrint(struct Matrix* a) {
-	for (int i = 0; i < a->r; i++) {
-		for (int j = 0; j < a->c; j++)
+	for (size_t i = 0; i < a->r; i++) {
+		for (size_t j = 0; j < a->c; j++)
 			printf("%d ", a->buf[i * a->c + j]);
 		putchar('\n');
 	}

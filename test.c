@@ -73,10 +73,11 @@ static void minimizeWetBits(struct Matrix* origMessage, const uint8_t stream[N],
 	memset(v, 0, sizeof(v));
 
 	size_t minStuck = INT_MAX;
-	struct Matrix mv; initMatrix(&mv, 1, L, v);
+	struct Matrix mv; initMatrix(&mv, 1, L, NULL);
 	struct Matrix x;  initMatrix(&x, 1, N, NULL);
 	for (uint64_t vint = 0; vint < 1<<L; vint++) {
 		ChartoBin((uint8_t*)&vint, L/8+(L%8?1:0), v, NULL);
+		memcpy(mv.buf, v, L);
 		matrixMul(&mv, &G0, &x);
 		matrixAdd(&x, origMessage);
 
@@ -90,36 +91,42 @@ static void minimizeWetBits(struct Matrix* origMessage, const uint8_t stream[N],
 			memcpy(out_buf, x.buf, N);
 		}
 
+		memset(x.buf, 0, N);
 	}
 	destroyMatrix(&mv);
 	destroyMatrix(&x);
 }
 
-static void solveConstraintsMinimally(struct Matrix* z, struct Matrix* S) {
-	size_t minHamm = INT_MAX;
-	uint8_t res[N];
-	memset(res, 0, sizeof(res));
-
-	uint8_t zz[64];
-	memset(zz, 0, sizeof(zz));
-	struct Matrix tmp; initMatrix(&tmp, 1, R, NULL);
-	for (uint64_t zint = 0; zint < 1<<N; zint++) {
-		ChartoBin((uint8_t*)&zint, N/8+(N%8?1:0), zz, NULL);
-		memcpy(z->buf, zz, N);
-		matrixMul(z, &Ht, &tmp);
-
-		size_t hamm = 0;
-		for (int i = 0; i < R; i++)
-			if (tmp.buf[i])
-				hamm++;
-
-		if (matrixEqual(&tmp, S) && hamm < minHamm) {
-			minHamm = hamm;
-			memcpy(res, z->buf, N);
-		}
+static bool helper(uint8_t zz[N], int left, int idx, int len, struct Matrix* S) {
+	if (idx == len) {
+		struct Matrix z; initMatrix(&z, 1, N, zz);
+		struct Matrix tmp; initMatrix(&tmp, 1, R, NULL);
+		matrixMul(&z, &Ht, &tmp);
+		bool res = matrixEqual(&tmp, S);
+		destroyMatrix(&z);
+		destroyMatrix(&tmp);
+		return res;
 	}
-	memcpy(z->buf, res, N);
-	destroyMatrix(&tmp);
+	if (left == 0) {
+		zz[idx] = 0;
+		return helper(zz, 0, idx+1, len, S);
+	}
+	zz[idx] = 0;
+	if (helper(zz, left-1, idx+1, len, S))
+		return true;
+	zz[idx] = 1;
+	return helper(zz, left-1, idx+1, len, S);
+}
+
+static void solveConstraintsMinimally(struct Matrix* z, struct Matrix* S) {
+//	uint8_t zz[N];
+//	for (int i = 0; i < N; i++)
+//		if (helper(zz, i, 0, N, S)) {
+//			memcpy(z->buf, zz, N);
+//			printf("%d\n", i);
+//			break;
+//		}
+	memset(z->buf, 0, N);
 }
 
 static void encodeMessage(const uint8_t in_buf[K], uint8_t out_buf[N], const uint8_t stream[N]) {
@@ -156,10 +163,12 @@ static void decodeMessage(const uint8_t in_buf[N], uint8_t out_buf[K]) {
 
 int main() {
 	initMLBC();
-	uint8_t in_buf[N] = {0, 0, 1, 0, 1, 1, 0}, out_buf[K];
-	decodeMessage(in_buf, out_buf);
-	for(int i = 0; i < K; i++)
+
+	uint8_t in_buf[K] = {0, 1}, out_buf[N], stream[N] = {1, 0, 1, 1, 1, 1, 1};
+	encodeMessage(in_buf, out_buf, stream);
+	for(int i = 0; i < N; i++)
 		printf("%d ", out_buf[i]);
 	putchar('\n');
+
 	destroyMLBC();
 }
