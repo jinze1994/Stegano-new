@@ -9,18 +9,16 @@ struct Matrix {
 	uint8_t* buf;
 };
 
-struct Matrix* newMatrix(uint32_t r, uint32_t c);
-
-struct Matrix* newMatrixA(uint32_t r, uint32_t c, const uint8_t* array);
+void initMatrix(struct Matrix* m, uint32_t r, uint32_t c, const uint8_t* array);
 
 void destroyMatrix(struct Matrix* m);
 
-struct Matrix* matrixDup(const struct Matrix* m);
+void matrixAdd(struct Matrix* a, struct Matrix* b);
 
-void matrixAdd(struct Matrix* a, const struct Matrix* b);
+bool matrixEqual(struct Matrix* a, struct Matrix* b);
 
-bool matrixEqual(const struct Matrix* a, const struct Matrix* b);
+void matrixMul(struct Matrix* a, struct Matrix* b, struct Matrix* c);
 
-struct Matrix* matrixMul(const struct Matrix* a, const struct Matrix* b);
+void matrixPrint(struct Matrix* a);
 
 #endif
