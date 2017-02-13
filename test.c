@@ -119,14 +119,12 @@ static bool helper(uint8_t zz[N], int left, int idx, int len, struct Matrix* S) 
 }
 
 static void solveConstraintsMinimally(struct Matrix* z, struct Matrix* S) {
-//	uint8_t zz[N];
-//	for (int i = 0; i < N; i++)
-//		if (helper(zz, i, 0, N, S)) {
-//			memcpy(z->buf, zz, N);
-//			printf("%d\n", i);
-//			break;
-//		}
-	memset(z->buf, 0, N);
+	uint8_t zz[N];
+	for (int i = 0; i < N; i++)
+		if (helper(zz, i, 0, N, S)) {
+			memcpy(z->buf, zz, N);
+			break;
+		}
 }
 
 static void encodeMessage(const uint8_t in_buf[K], uint8_t out_buf[N], const uint8_t stream[N]) {
@@ -166,8 +164,13 @@ int main() {
 
 	uint8_t in_buf[K] = {0, 1}, out_buf[N], stream[N] = {1, 0, 1, 1, 1, 1, 1};
 	encodeMessage(in_buf, out_buf, stream);
-	for(int i = 0; i < N; i++)
-		printf("%d ", out_buf[i]);
+
+	out_buf[0] = 1;
+
+	memset(in_buf, 0, sizeof(in_buf));
+	decodeMessage(out_buf, in_buf);
+	
+	for (int i = 0; i < K; i++) printf("%d ", in_buf[i]);
 	putchar('\n');
 
 	destroyMLBC();

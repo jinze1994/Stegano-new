@@ -158,6 +158,7 @@ static void minimizeWetBits(struct Matrix* origMessage, const uint8_t stream[N],
 
 static bool helper(uint8_t zz[N], int left, int idx, int len, struct Matrix* S) {
 	if (idx == len) {
+		if (left != 0) return false;
 		struct Matrix z; initMatrix(&z, 1, N, zz);
 		struct Matrix tmp; initMatrix(&tmp, 1, R, NULL);
 		matrixMul(&z, &Ht, &tmp);
@@ -171,20 +172,21 @@ static bool helper(uint8_t zz[N], int left, int idx, int len, struct Matrix* S) 
 		return helper(zz, 0, idx+1, len, S);
 	}
 	zz[idx] = 0;
-	if (helper(zz, left-1, idx+1, len, S))
+	if (helper(zz, left, idx+1, len, S))
 		return true;
 	zz[idx] = 1;
 	return helper(zz, left-1, idx+1, len, S);
 }
 
-static void solveConstraintsMinimally(struct Matrix* z, struct Matrix* S) {
+static int solveConstraintsMinimally(struct Matrix* z, struct Matrix* S) {
 	uint8_t zz[N];
-	for (int i = 0; i < N; i++)
-		if (helper(zz, i, 0, N, S)) {
-			memcpy(z->buf, zz, N);
+	int i;
+	for (i = 0; i < N; i++)
+		if (helper(zz, i, 0, N, S))
 			break;
-		}
-	memset(z->buf, 0, N);
+	assert(i != N);
+	memcpy(z->buf, zz, N);
+	return i;
 }
 
 static void encodeMessage(const uint8_t in_buf[K], uint8_t out_buf[N], const uint8_t stream[N]) {
@@ -206,12 +208,16 @@ static void decodeMessage(const uint8_t in_buf[N], uint8_t out_buf[K]) {
 	matrixMul(&y, &Ht, &S);
 
 	struct Matrix z; initMatrix(&z, 1, N, NULL);
-	solveConstraintsMinimally(&z, &S);
+	int l = solveConstraintsMinimally(&z, &S);
+	printf("%d\t", l);
 
 	matrixAdd(&y, &z);
 	struct Matrix xNewJt; initMatrix(&xNewJt, 1, K, NULL);
 	matrixMul(&y, &Jt, &xNewJt);
 	memcpy(out_buf, xNewJt.buf, K);
+	for (int i = 0 ; i < K; i++)
+		printf("%d ", out_buf[i]);
+	printf("\n");
 
 	destroyMatrix(&y);
 	destroyMatrix(&S);
@@ -254,6 +260,13 @@ int encodeLongMessage(const uint8_t* message, uint8_t message_len,
 		memcpy(dataToHide + i*N, out_buf, N);
 	}
 	data_len *= N;
+
+	for (int i = 0; i < message_len; i++) {
+		char tmp[200];
+		sprintf(tmp, "%x", message[i]);
+		printf("(%s,%c) ", tmp, message[i]);
+	}
+	printf("\n");
 
 	*dataToHidePtr = dataToHide;
 	*data_len_ptr = data_len;
@@ -306,6 +319,13 @@ int decodeLongMessage(const uint8_t* stream, size_t stream_len,
 
 	memcpy(message, buf + rge_len, message_len);
 	message[message_len] = 0;
+
+	for (int i = 0; i < message_len; i++) {
+		char tmp[200];
+		sprintf(tmp, "%x", message[i]);
+		printf("(%s,%c) ", tmp, message[i]);
+	}
+	printf("\n");
 
 	free(buf);
 	printEmbedInfo(rge_len, message_len,

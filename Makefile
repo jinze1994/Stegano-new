@@ -16,5 +16,8 @@ valid:
 test:
 	gcc test.c matrix.c
 
+recode:
+	./main --recode t1.jpg tmp.jpg
+
 clean:
 	rm -f a.out main tmp.jpg out.jpg

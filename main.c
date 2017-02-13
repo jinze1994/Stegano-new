@@ -4,7 +4,8 @@
 const char* msg_usage = 
 "Usage:  %s --write    [input_filename] [output_filename] [password] [message]\n"
 "        %s --read     [input_filename] [password]\n"
-"        %s --estimate [input_filename]\n";
+"        %s --estimate [input_filename]\n"
+"        %s --recode   [input_filename] [output_filename]\n";
 
 int main(int argc, char* argv[]) {
 	const char *cmd = NULL;
@@ -19,6 +20,8 @@ int main(int argc, char* argv[]) {
 		cmd = argv[1], input_filename = argv[2], output_filename = argv[3], password = argv[4], message = argv[5];
 	else if (argc == 3 && !strcmp(argv[1], "--estimate"))
 		cmd = argv[1], input_filename = argv[2];
+	else if (argc == 4 && !strcmp(argv[1], "--recode"))
+		cmd = argv[1], input_filename = argv[2], output_filename = argv[3];
 	else
 		Panic(msg_usage, argv[0], argv[0], argv[0]);
 
@@ -66,6 +69,9 @@ int main(int argc, char* argv[]) {
 
 		printf("Encode Success!\n");
 
+	} else if (!strcmp(cmd, "--recode")) {
+		rv = jpegChangeQuantity(input_file, output_file, 65);
+		if (rv) goto cleanup;
 	} else
 		Panic("Wrong command\n");
 
