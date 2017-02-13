@@ -15,6 +15,8 @@ void destroyMatrix(struct Matrix* m);
 
 void matrixAdd(struct Matrix* a, struct Matrix* b);
 
+void matrixSub(struct Matrix* a, struct Matrix* b);
+
 bool matrixEqual(struct Matrix* a, struct Matrix* b);
 
 void matrixMul(struct Matrix* a, struct Matrix* b, struct Matrix* c);

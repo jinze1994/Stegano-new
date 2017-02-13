@@ -21,6 +21,13 @@ void matrixAdd(struct Matrix* a, struct Matrix* b) {
 			a->buf[i * a->c + j] ^= b->buf[i * b->c + j];
 }
 
+void matrixSub(struct Matrix* a, struct Matrix* b) {
+	Assert(a->r == b->r && a->c == b->c, "Matrix sub error\n");
+	for (uint32_t i = 0; i < a->r; i++)
+		for (uint32_t j = 0; j < a->c; j++)
+			a->buf[i * a->c + j] = (a->buf[i * a->c + j] - b->buf[i * b->c + j]) % 2;
+}
+
 bool matrixEqual(struct Matrix* a, struct Matrix* b) {
 	Assert(a->r == b->r && a->c == b->c, "Matrix equal error\n");
 	return !memcmp(a->buf, b->buf, a->r * a->c);

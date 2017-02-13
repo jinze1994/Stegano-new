@@ -209,12 +209,13 @@ static void decodeMessage(const uint8_t in_buf[N], uint8_t out_buf[K]) {
 
 	struct Matrix z; initMatrix(&z, 1, N, NULL);
 	int l = solveConstraintsMinimally(&z, &S);
-	printf("%d\t", l);
 
-	matrixAdd(&y, &z);
+	matrixSub(&y, &z);
 	struct Matrix xNewJt; initMatrix(&xNewJt, 1, K, NULL);
 	matrixMul(&y, &Jt, &xNewJt);
 	memcpy(out_buf, xNewJt.buf, K);
+
+	printf("%d\t", l);
 	for (int i = 0 ; i < K; i++)
 		printf("%d ", out_buf[i]);
 	printf("\n");
