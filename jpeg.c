@@ -18,6 +18,8 @@ const char * stegano_describe(int code) {
 			return "Only garbage found";
 		case 50:
 			return "Jpeg scale error";
+		case 60:
+			return "Diff not scale picture";
 	}
 	return "Unknown error";
 }
@@ -194,4 +196,60 @@ int printJpegQuantity(FILE* infile) {
 		}
 
 	return 0;
+}
+
+int diff(FILE* infile1, FILE* infile2, int* cnt, int* w, int* h) {
+	struct jpeg_decompress_struct cinfo_1;
+	struct jpeg_decompress_struct cinfo_2;
+
+	struct my_error_mgr jerr;
+	cinfo_1.err = jpeg_std_error(&jerr.pub);
+	cinfo_2.err = jpeg_std_error(&jerr.pub);
+	jerr.pub.error_exit = my_error_exit;
+	if (setjmp(jerr.setjmp_buffer)) {
+		jpeg_destroy_decompress(&cinfo_1);
+		jpeg_destroy_decompress(&cinfo_2);
+		return 10;
+	}
+	
+	jpeg_create_decompress(&cinfo_1);
+	jpeg_create_decompress(&cinfo_2);
+	jpeg_stdio_src(&cinfo_1, infile1);
+	jpeg_stdio_src(&cinfo_2, infile2);
+	jpeg_read_header(&cinfo_1, TRUE);
+	jpeg_read_header(&cinfo_2, TRUE);
+	if (cinfo_1.image_width != cinfo_2.image_width 
+			|| cinfo_1.image_height != cinfo_2.image_height) {
+		jpeg_destroy_decompress(&cinfo_1);
+		jpeg_destroy_decompress(&cinfo_2);
+		return 60;
+	}
+
+	*cnt = 0;
+	*w = cinfo_1.image_width;
+	*h = cinfo_1.image_height;
+
+	jpeg_start_decompress(&cinfo_1);
+	jpeg_start_decompress(&cinfo_2);
+	JSAMPROW row_pointer[2];
+	row_pointer[0] = malloc(cinfo_1.image_width * cinfo_1.num_components);
+	row_pointer[1] = malloc(cinfo_1.image_width * cinfo_1.num_components);
+	while (cinfo_1.output_scanline < cinfo_1.output_height) {
+		jpeg_read_scanlines(&cinfo_1, row_pointer, 1);
+		jpeg_read_scanlines(&cinfo_2, row_pointer+1, 1);
+		for (size_t i = 0; i < cinfo_1.image_width * cinfo_1.num_components; i++)
+			if (row_pointer[0][i] != row_pointer[1][i])
+				(*cnt)++;
+	}
+	free(row_pointer[0]);
+	free(row_pointer[1]);
+
+	/*clean-up*/
+	jpeg_finish_decompress(&cinfo_1);
+	jpeg_finish_decompress(&cinfo_2);
+	jpeg_destroy_decompress(&cinfo_1);
+	jpeg_destroy_decompress(&cinfo_2);
+
+	return 0;
+
 }

@@ -26,4 +26,6 @@ void fetchJpegQuant(struct jpeg_decompress_struct* cinfo,
 
 int printJpegQuantity(FILE* infile);
 
+int diff(FILE* infile, FILE* infile2, int* cnt, int* w, int *h);
+
 #endif

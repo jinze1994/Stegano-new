@@ -5,13 +5,14 @@ const char* msg_usage =
 "Usage:  %s --write    [input_filename] [output_filename] [password] [message]\n"
 "        %s --read     [input_filename] [password]\n"
 "        %s --estimate [input_filename]\n"
-"        %s --recode   [input_filename] [output_filename]\n";
+"        %s --recode   [input_filename] [output_filename]\n"
+"        %s --diff     [input_filename] [another_filename]\n";
 
 int main(int argc, char* argv[]) {
 	const char *cmd = NULL;
-	const char *input_filename = NULL, *output_filename = NULL;
+	const char *input_filename = NULL, *output_filename = NULL, *input_filename2 = NULL;
 	const char *password = NULL, *message = NULL;
-	FILE *input_file = NULL, *output_file = NULL, *rep_file = NULL;
+	FILE *input_file = NULL, *input_file2 = NULL, *output_file = NULL, *rep_file = NULL;
 
 	// Read Arguments
 	if (argc == 4 && !strcmp(argv[1], "--read"))
@@ -22,12 +23,18 @@ int main(int argc, char* argv[]) {
 		cmd = argv[1], input_filename = argv[2];
 	else if (argc == 4 && !strcmp(argv[1], "--recode"))
 		cmd = argv[1], input_filename = argv[2], output_filename = argv[3];
+	else if (argc == 4 && !strcmp(argv[1], "--diff"))
+		cmd = argv[1], input_filename = argv[2], input_filename2 = argv[3];
 	else
 		Panic(msg_usage, argv[0], argv[0], argv[0]);
 
 	if (input_filename) {
 		input_file = fopen(input_filename, "r");
 		Assert(input_file != NULL, "Failed to open %s\n", input_filename);
+	}
+	if (input_filename2) {
+		input_file2 = fopen(input_filename2, "r");
+		Assert(input_file != NULL, "Failed to open %s\n", input_filename2);
 	}
 	if (output_filename) {
 		output_file = fopen(output_filename, "w");
@@ -72,6 +79,13 @@ int main(int argc, char* argv[]) {
 	} else if (!strcmp(cmd, "--recode")) {
 		rv = jpegChangeQuantity(input_file, output_file, 65);
 		if (rv) goto cleanup;
+
+	} else if (!strcmp(cmd, "--diff")) {
+		int cnt, w, h;
+		rv = diff(input_file, input_file2, &cnt, &w, &h);
+		if (rv) goto cleanup;
+		printf("different byte: %d %lf\n", cnt, cnt * 1.0 / w / h / 3);
+
 	} else
 		Panic("Wrong command\n");
 
