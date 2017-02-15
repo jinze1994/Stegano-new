@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 	else if (argc == 4 && !strcmp(argv[1], "--diff"))
 		cmd = argv[1], input_filename = argv[2], input_filename2 = argv[3];
 	else
-		Panic(msg_usage, argv[0], argv[0], argv[0]);
+		Panic(msg_usage, argv[0], argv[0], argv[0], argv[0], argv[0]);
 
 	if (input_filename) {
 		input_file = fopen(input_filename, "r");
@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
 		// rep_file = fopen("tmp.jpg", "w+b");
 		Assert(rep_file != NULL, "Failed to open temp file\n");
 
-		rv = jpegChangeQuantity(input_file, rep_file, 71);
+		rv = jpegChangeQuantity(input_file, rep_file, 75);
 		if (rv) goto cleanup;
 		rewind(rep_file);
 
@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
 		printf("Encode Success!\n");
 
 	} else if (!strcmp(cmd, "--recode")) {
-		rv = jpegChangeQuantity(input_file, output_file, 65);
+		rv = jpegChangeQuantity(input_file, output_file, 80);
 		if (rv) goto cleanup;
 
 	} else if (!strcmp(cmd, "--diff")) {

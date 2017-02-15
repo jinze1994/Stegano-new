@@ -1,4 +1,4 @@
-all: main naive
+all: main
 
 main: jpeg.c jpeg.h rgen.c rgen.h matrix.c matrix.h mlbc.c mlbc.h stegano.c stegano.h habit.h main.c
 	gcc -O2 -Wall -Wextra -Wshadow jpeg.c rgen.c matrix.c mlbc.c stegano.c main.c -ljpeg -lcrypto -o main
