@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
 		// rep_file = fopen("tmp.jpg", "w+b");
 		Assert(rep_file != NULL, "Failed to open temp file\n");
 
-		rv = jpegChangeQuantity(input_file, rep_file, 65);
+		rv = jpegChangeQuantity(input_file, rep_file, 71);
 		if (rv) goto cleanup;
 		rewind(rep_file);
 
