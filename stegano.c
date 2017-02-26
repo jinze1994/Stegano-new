@@ -17,16 +17,13 @@ static bool checkJPEGScale(struct jpeg_decompress_struct* cinfo) {
 }
 
 static uint32_t* getValidCoeffs(size_t blocks, size_t* n) {
-	uint32_t* coeffsPos = (uint32_t*) malloc(3 * blocks * sizeof(uint32_t));
+	uint32_t* coeffsPos = (uint32_t*) malloc(blocks * sizeof(uint32_t));
 	if (coeffsPos == NULL) return NULL;
 
-	for (size_t i = 0; i < blocks; i++) {
-		coeffsPos[i*3+0] = i * DCTSIZE2 + 1;
-		coeffsPos[i*3+1] = i * DCTSIZE2 + DCTSIZE;
-		coeffsPos[i*3+2] = i * DCTSIZE2 + DCTSIZE + 1;
-	}
+	for (size_t i = 0; i < blocks; i++)
+		coeffsPos[i] = i * DCTSIZE2 + 1;
 
-	*n = blocks * 3;
+	*n = blocks;
 	return coeffsPos;
 }
 

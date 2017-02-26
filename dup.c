@@ -6,7 +6,7 @@
 void initMLBC() {}
 void destroyMLBC() {}
 
-#define K (11)
+#define K (9)
 #define rge_len (2)
 
 uint8_t* encodeMessage(const uint8_t* message, size_t message_len,
@@ -26,7 +26,7 @@ int encodeLongMessage(const uint8_t* message, uint8_t message_len,
 	stream = stream, stream_len = stream_len;
 
 	size_t data_len = (1 + rge_len + message_len) * 8 * K;
-	if (data_len >= 256 * 8 * K) return 10;
+	if (data_len >= 256 * 8 * K || data_len >= stream_len) return 10;
 
 	uint8_t* dataToHide = malloc(data_len);
 	if (dataToHide == NULL) return 20;
